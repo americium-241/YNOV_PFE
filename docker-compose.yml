@@ -1,0 +1,35 @@
+version: '3'
+services:
+  neo4j:
+    image: neo4j:latest
+    environment:
+      NEO4J_AUTH: neo4j/password # Change password as needed
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*,gds.*"
+      NEO4JLABS_PLUGINS: '["apoc", "graph-data-science"]'
+    volumes:
+      - ./neo4j/plugins:/plugins
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+   
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3001:3000"
+    entrypoint: ["/scripts/post-install.sh"]
+    volumes:
+      - ./post-install.sh:/scripts/post-install.sh
+      - ./dashboard_template.json:/scripts/dashboard_template.json
+      - ./prometheus_dashboard_template.json:/scripts/prometheus_dashboard_template.json
+  data-collector:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    depends_on:
+      - neo4j
+  prometheus:
+    image: prom/prometheus:v2.30.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml

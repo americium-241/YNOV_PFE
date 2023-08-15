@@ -1,0 +1,14 @@
+FROM python:3.9-slim
+
+# Set the working directory
+WORKDIR /usr/src/app
+
+# Install any dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the script
+COPY ./neo4j_post_install.py .
+
+# Command to run your script
+CMD ["python", "./neo4j_post_install.py"]
