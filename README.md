@@ -60,9 +60,4 @@ The global objective of this project is to create a map application that leverag
 
 ## License
 
-This project is open source and available under the [MIT License](LICENSE).
-
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
+la bite en bois bien sur.
