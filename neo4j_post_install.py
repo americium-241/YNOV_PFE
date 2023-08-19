@@ -2,6 +2,10 @@
 
 from neo4j import GraphDatabase
 import time
+import numpy as np
+import pandas as pd
+
+import numpy as np
 
 def wait_for_neo4j():
     driver = None
@@ -56,6 +60,90 @@ def extract_coordinates(df):
     
     coords_df = pd.concat(list_of_temp_dfs, ignore_index=True)
     return coords_df
+def haversine(lat1, lon1, lat2, lon2):
+
+    """
+
+    Calculate the great circle distance between two points 
+
+    on the earth (specified in decimal degrees)
+
+    """
+
+    # Convert decimal degrees to radians 
+
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    # Haversine formula 
+
+    dlon = lon2 - lon1 
+
+    dlat = lat2 - lat1 
+
+    a = np.sin(dlat/2)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon/2)**2
+
+    c = 2 * np.arcsin(np.sqrt(a)) 
+
+    # Radius of earth in kilometers. Use 3956 for miles. Determines return value units.
+
+    r = 6371
+
+    return c * r * 1000
+def assign_intersection_id_grid(df, threshold=3):
+    """
+    Highly optimized version to assign a unique intersection ID to points 
+    that are within the specified distance threshold of each other, using a grid-based approach.
+    
+    Parameters:
+    - df: DataFrame containing 'longitude', 'latitude', and 'id_road' columns.
+    - threshold: Distance threshold in meters. Points closer than this threshold will be assigned the same intersection ID.
+    
+    Returns:
+    - DataFrame with an additional 'intersection_id' column.
+    """
+    # Convert latitude and longitude to radians
+    coords = np.radians(df[['latitude', 'longitude']].values)
+    
+    # Convert to Cartesian coordinates (meters) using Mercator projection
+    R = 6378137  # Earth radius in meters
+    x = R * coords[:, 1]
+    y = R * np.log(np.tan(np.pi/4 + coords[:, 0]/2))
+    
+    # Create grid indices
+    grid_size = threshold
+    x_idx = (x / grid_size).astype(int)
+    y_idx = (y / grid_size).astype(int)
+    
+    # Initialize intersection ID and visited set
+    intersection_id = 0
+    df['intersection_id'] = np.nan
+    visited = set()
+    
+    # Iterate through points and assign intersection IDs
+    for i in range(len(df)):
+        if i not in visited:
+            # Find points in the same or adjacent grid cells
+            close_points = np.where(
+                (x_idx >= x_idx[i] - 1) & (x_idx <= x_idx[i] + 1) &
+                (y_idx >= y_idx[i] - 1) & (y_idx <= y_idx[i] + 1)
+            )[0]
+            
+            # Check the actual distances
+            close_points = close_points[
+                haversine(coords[i, 0], coords[i, 1], coords[close_points, 0], coords[close_points, 1]) < threshold
+            ]
+            
+            if len(close_points) > 1:
+                # Assign a new intersection ID to these points
+                df.loc[close_points, 'intersection_id'] = intersection_id
+                visited.update(close_points)
+                intersection_id += 1  # Increment the intersection ID for the next group
+    
+    return df
+
+# Test the highly optimized grid-based function with the adjusted sample data
+
+
 
 def add_nodes(tx, nodes):
     """Add nodes to the Neo4j database."""
@@ -65,6 +153,7 @@ def add_nodes(tx, nodes):
             latitude: node.latitude, 
             longitude: node.longitude,
             road_id: node.road_id,
+            intersection_id: node.intersection_id,
             id: node.id,
             geometry: point({longitude: node.longitude, latitude: node.latitude})
         })
@@ -91,16 +180,20 @@ def build_database( bbox, batch_size):
     url = "https://wxs.ign.fr/pfinqfa9win76fllnimpfmbi/telechargement/inspire/ROUTE500-France-2021$ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03/file/ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03.7z"
     save_path = "ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03.7z"
     download_file(url, save_path)
+    print("Download complete.", flush=True)
     
     # Step 2: Extract the .7z file
     extract_path = "extracted_files/"
     extract_7z(save_path, extract_path)
+    print("Extraction complete.", flush=True)
     # Step 1: Load and filter the shapefile
     df = read_and_filter_shapefile("./"+extract_path+'ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03/ROUTE500/1_DONNEES_LIVRAISON_2022-01-00175/R500_3-0_SHP_LAMB93_FXX-ED211/RESEAU_ROUTIER/TRONCON_ROUTE.shp', bbox)
-    
+    print("Shapefile loaded and filtered.", flush=True)
     # Step 2: Extract the coordinates
     coords_df = extract_coordinates(df)
-    
+    print("Coordinates extracted.", flush=True)
+    coords_df = assign_intersection_id_grid(coords_df, threshold=3)
+    print("Intersection IDs assigned.", flush=True)
     # Step 3: Connect to the Neo4j database
     driver = GraphDatabase.driver("neo4j://neo4j:7687", auth=("neo4j", "password"))
     
@@ -112,6 +205,7 @@ def build_database( bbox, batch_size):
             'latitude': node['latitude'],
             'longitude': node['longitude'],
             'road_id': node['id'],
+            'intersection_id': node['intersection_id'],
             'id': i
         })
         if (i + 1) % batch_size == 0:
@@ -121,50 +215,35 @@ def build_database( bbox, batch_size):
     if nodes:
         with driver.session() as session:
             session.write_transaction(add_nodes, nodes)
+    print("Nodes added to the database.", flush=True)
     
     # Step 5: Create links between the nodes
     with driver.session() as session:
         session.write_transaction(create_all_links)
+    print("Links created 0.", flush=True)
+    with driver.session() as session:
+        session.write_transaction(connect_intersection_nodes)
+    print("Links created 1." , flush=True)  
     
     return
-    #PART TO OPTIMIZE
-    # Step 6: Create links between nodes that are within a certain distance threshold
-    # You can set this to whatever value you need
-    q = "MATCH (n:GRID_ROUTE) RETURN id(n) AS id"
-
-    # Define distance threshold
-    threshold = 2
-
-    with driver.session() as session:
-        result = session.read_transaction(lambda tx: tx.run(q).data())
-
-    # For each node, create bidirectional links to other nodes within the threshold
-    for record in result:
-        node_id = record['id']
-        with driver.session() as session:
-            session.write_transaction(create_links_for_node, node_id, threshold)
-        
-    # Step 7: Close the Neo4j driver
 
 
 
-def create_links_for_node(tx, node_id, threshold):
+def connect_intersection_nodes(tx):
+    """Create relationships between nodes with the same intersection_id."""
+    query = """
+        MATCH (n:GRID_ROUTE)
+        WITH n.intersection_id AS intersection, COLLECT(n) AS nodes
+        WHERE SIZE(nodes) > 1
+        UNWIND nodes AS n1
+        WITH n1, nodes
+        UNWIND nodes AS n2
+        WITH n1, n2
+        WHERE id(n1) < id(n2)
+        MERGE (n1)-[:GRID_ROUTE_LINK {distance: 1, time: 1}]->(n2)
     """
-    For a given node (specified by its ID), this function creates bidirectional links
-    to all other nodes that are within a certain distance threshold.
-    """
-    q = f"""
-    MATCH (n1:GRID_ROUTE) WHERE id(n1) = {node_id}
-    MATCH (n2:GRID_ROUTE)
-    WHERE n1 <> n2
-    AND point.distance(n1.geometry, n2.geometry) < {threshold}
-    WITH n1, n2, point.distance(n1.geometry, n2.geometry) AS distance
-    MERGE (n1)-[link1:GRID_ROUTE_LINK]->(n2)
-    ON CREATE SET link1.distance = distance, link1.time = distance / 50
-    MERGE (n2)-[link2:GRID_ROUTE_LINK]->(n1)
-    ON CREATE SET link2.distance = distance, link2.time = distance / 50
-    """
-    tx.run(q)
+    tx.run(query)
+
     
 def download_file(url, save_path):
     """Download a file from a URL and save it to a local path."""

@@ -1,186 +1,263 @@
 {
-    "dashboard":{
-    "editable": true,
-    "fiscalYearStartMonth": 0,
-    "graphTooltip": 0,
-    "id": null,
-    "links": [],
-    "liveNow": false,
-    "panels": [
-      {
-        "datasource": {
-          "type": "kniepdennis-neo4j-datasource",
-          "uid": "UID_TO_REPLACE"
+  "dashboard":{
+"editable": true,
+"fiscalYearStartMonth": 0,
+"graphTooltip": 0,
+"id": null,
+"links": [],
+"liveNow": false,
+"panels": [
+  {
+    "datasource": {
+      "type": "kniepdennis-neo4j-datasource",
+      "uid": "UID_TO_REPLACE"
+    },
+    "fieldConfig": {
+      "defaults": {
+        "color": {
+          "mode": "thresholds"
         },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
+        "custom": {
+          "hideFrom": {
+            "legend": false,
+            "tooltip": false,
+            "viz": false
+          }
+        },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
             },
-            "custom": {
-              "axisCenteredZero": false,
-              "axisColorMode": "text",
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
+            {
+              "color": "red",
+              "value": 80
             }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 0
-        },
-        "id": 2,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "none"
-          }
-        },
-        "targets": [
-          {
-            "cypherQuery": "CALL dbms.components()\r\nYIELD name, versions, edition\r\nRETURN name, versions, edition\r\n",
-            "datasource": {
-              "type": "kniepdennis-neo4j-datasource",
-              "uid": "UID_TO_REPLACE"
-            },
-            "refId": "A"
-          }
-        ],
-        "title": "Panel Title",
-        "type": "timeseries"
+          ]
+        }
       },
+      "overrides": []
+    },
+    "gridPos": {
+      "h": 14,
+      "w": 7,
+      "x": 0,
+      "y": 0
+    },
+    "id": 2,
+    "options": {
+      "basemap": {
+        "config": {
+          "showLabels": true,
+          "theme": "auto"
+        },
+        "name": "Layer 0",
+        "tooltip": true,
+        "type": "carto"
+      },
+      "controls": {
+        "mouseWheelZoom": true,
+        "showAttribution": true,
+        "showDebug": true,
+        "showMeasure": true,
+        "showScale": true,
+        "showZoom": true
+      },
+      "layers": [
+        {
+          "config": {
+            "showLegend": true,
+            "style": {
+              "color": {
+                "fixed": "dark-green"
+              },
+              "opacity": 0.4,
+              "rotation": {
+                "fixed": 0,
+                "max": 360,
+                "min": -360,
+                "mode": "mod"
+              },
+              "size": {
+                "fixed": 5,
+                "max": 15,
+                "min": 2
+              },
+              "symbol": {
+                "fixed": "img/icons/marker/circle.svg",
+                "mode": "fixed"
+              },
+              "textConfig": {
+                "fontSize": 12,
+                "offsetX": 0,
+                "offsetY": 0,
+                "textAlign": "center",
+                "textBaseline": "middle"
+              }
+            }
+          },
+          "filterData": {
+            "id": "byRefId",
+            "options": "A"
+          },
+          "location": {
+            "mode": "auto"
+          },
+          "name": "path",
+          "tooltip": true,
+          "type": "markers"
+        }
+      ],
+      "tooltip": {
+        "mode": "details"
+      },
+      "view": {
+        "allLayers": true,
+        "id": "coords",
+        "lat": 44.80703,
+        "lon": -1.089405,
+        "zoom": 9.19
+      }
+    },
+    "pluginVersion": "10.0.3",
+    "targets": [
       {
+        "Format": "table",
+        "cypherQuery": "MATCH (start:GRID_ROUTE), (end:GRID_ROUTE)\r\nWITH start, end, rand() AS random\r\nORDER BY random\r\nLIMIT 2\r\nMATCH path = shortestPath((start)-[*]-(end))\r\nUNWIND nodes(path) AS node\r\nRETURN node.id AS NodeID, node.latitude AS Latitude, node.longitude AS Longitude\r\n\r\n",
         "datasource": {
           "type": "kniepdennis-neo4j-datasource",
           "uid": "UID_TO_REPLACE"
         },
-        "description": "apoc version",
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "custom": {
-              "align": "auto",
-              "cellOptions": {
-                "type": "auto"
-              },
-              "inspect": false
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 8
-        },
-        "id": 1,
-        "options": {
-          "cellHeight": "sm",
-          "footer": {
-            "countRows": false,
-            "fields": "",
-            "reducer": [
-              "sum"
-            ],
-            "show": false
-          },
-          "showHeader": true
-        },
-        "pluginVersion": "10.0.3",
-        "targets": [
-          {
-            "cypherQuery": "RETURN apoc.version() AS version\r\n\r\n",
-            "datasource": {
-              "type": "kniepdennis-neo4j-datasource",
-              "uid": "UID_TO_REPLACE"
-            },
-            "refId": "A"
-          }
-        ],
-        "title": "Panel Title",
-        "type": "table"
+        "refId": "A"
       }
     ],
-    "refresh": "",
-    "schemaVersion": 38,
-    "style": "dark",
-    "tags": [],
-    "templating": {
-      "list": []
+    "title": "Panel Title",
+    "transformations": [
+      {
+        "id": "extractFields",
+        "options": {
+          "format": "json",
+          "jsonPaths": [],
+          "keepTime": false,
+          "replace": false,
+          "source": "path"
+        }
+      }
+    ],
+    "type": "geomap"
+  },
+  {
+    "datasource": {
+      "type": "kniepdennis-neo4j-datasource",
+      "uid": "UID_TO_REPLACE"
     },
-    "time": {
-      "from": "now-6h",
-      "to": "now"
+    "description": "apoc version",
+    "fieldConfig": {
+      "defaults": {
+        "color": {
+          "mode": "thresholds"
+        },
+        "custom": {
+          "align": "auto",
+          "cellOptions": {
+            "type": "auto"
+          },
+          "inspect": false
+        },
+        "mappings": [],
+        "thresholds": {
+          "mode": "absolute",
+          "steps": [
+            {
+              "color": "green",
+              "value": null
+            },
+            {
+              "color": "red",
+              "value": 80
+            }
+          ]
+        }
+      },
+      "overrides": []
     },
-    "timepicker": {},
-    "timezone": "",
-    "title": "New dashboard",
-    "uid": null,
-    "version": 4,
-    "weekStart": ""
+    "gridPos": {
+      "h": 4,
+      "w": 2,
+      "x": 22,
+      "y": 0
+    },
+    "id": 1,
+    "options": {
+      "cellHeight": "sm",
+      "footer": {
+        "countRows": false,
+        "fields": "",
+        "reducer": [
+          "sum"
+        ],
+        "show": false
+      },
+      "showHeader": true
+    },
+    "pluginVersion": "10.0.3",
+    "targets": [
+      {
+        "cypherQuery": "RETURN apoc.version() AS version\r\n\r\n",
+        "datasource": {
+          "type": "kniepdennis-neo4j-datasource",
+          "uid": "UID_TO_REPLACE"
+        },
+        "refId": "A"
+      }
+    ],
+    "title": "Panel Title",
+    "type": "table"
+  },
+  {
+    "datasource": {
+      "type": "datasource",
+      "uid": "grafana"
+    },
+    "gridPos": {
+      "h": 11,
+      "w": 17,
+      "x": 7,
+      "y": 4
+    },
+    "id": 3,
+    "options": {
+      "code": {
+        "language": "plaintext",
+        "showLineNumbers": false,
+        "showMiniMap": false
+      },
+      "content": "---\n## Need Support? Found a Bug? \n\nIf you encounter any problems or have a feature request, we would be happy to help! Here's how you can reach us:\n\n1. **Ask for Help:**  \n   If you have a question or need help, feel free to open a discussion under the **Discussions** tab of our GitHub repository.\n\n   [Ask for Help](https://github.com/americium-241/YNOV_PFE/discussions)\n\n\n2. **Report a Bug or Request a Feature:**  \n   If you found a bug or have a feature request, please open an issue in our GitHub repository. Before opening a new issue, please check if a similar issue already exists or has been closed previously.\n\n   [Create a New Issue](https://github.com/americium-241/YNOV_PFE/issues/new)\n  \n  \n\n3. **General Support:**  \n   For general inquiries or troubleshooting, browse through the already existing issues or pull requests.\n\n   [Browse Issues and Pull Requests](https://github.com/americium-241/YNOV_PFE/issues)\n\n---\n\n",
+      "mode": "markdown"
+    },
+    "pluginVersion": "10.0.3",
+    "transparent": true,
+    "type": "text"
   }
-}
+],
+"refresh": "",
+"schemaVersion": 38,
+"style": "dark",
+"tags": [],
+"templating": {
+  "list": []
+},
+"time": {
+  "from": "now-6h",
+  "to": "now"
+},
+"timepicker": {},
+"timezone": "",
+"title": "application",
+"uid": "null",
+"version": 3,
+"weekStart": ""
+}}

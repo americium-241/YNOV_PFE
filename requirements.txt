@@ -3,3 +3,5 @@ requests
 py7zr
 geopandas
 shapely
+numpy
+pandas
