@@ -1,229 +1,405 @@
 {
     "dashboard":{
-    "annotations": {
-      "list": [
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
         {
-          "builtIn": 1,
           "datasource": {
-            "type": "grafana",
-            "uid": "-- Grafana --"
+            "type": "prometheus",
+            "uid": "UID_REPLACE_prom"
           },
-          "enable": true,
-          "hide": true,
-          "iconColor": "rgba(0, 211, 255, 1)",
-          "name": "Annotations & Alerts",
-          "type": "dashboard"
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 25,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "decbytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 11,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "UID_REPLACE_prom"
+              },
+              "editorMode": "builder",
+              "expr": "go_memstats_heap_alloc_bytes{instance=~\"grafana:3000|localhost:9090\"}",
+              "instant": false,
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "memory alloc",
+          "transformations": [
+            {
+              "id": "labelsToFields",
+              "options": {
+                "keepLabels": [
+                  "instance"
+                ],
+                "valueLabel": "instance"
+              }
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "UID_REPLACE_prom"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 13,
+            "x": 11,
+            "y": 0
+          },
+          "id": 2,
+          "options": {
+            "legend": {
+              "calcs": [
+                "max",
+                "delta"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "UID_REPLACE_prom"
+              },
+              "editorMode": "builder",
+              "expr": "net_conntrack_dialer_conn_established_total{instance=~\"neo4j|prometheus|grafana|localhost:9090|grafana:3000\"}",
+              "instant": false,
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "nombre de connections",
+          "transformations": [
+            {
+              "id": "labelsToFields",
+              "options": {
+                "keepLabels": [
+                  "dialer_name",
+                  "instance",
+                  "job"
+                ],
+                "valueLabel": "instance"
+              }
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "kniepdennis-neo4j-datasource",
+            "uid": "UID_REPLACE_neo"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "json-view"
+                },
+                "filterable": true,
+                "inspect": true
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "name"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 304
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "description"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 203
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 11,
+            "w": 16,
+            "x": 0,
+            "y": 10
+          },
+          "id": 4,
+          "options": {
+            "cellHeight": "md",
+            "footer": {
+              "countRows": false,
+              "enablePagination": true,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "10.0.3",
+          "targets": [
+            {
+              "cypherQuery": "CALL dbms.listConfig() \r\n;",
+              "datasource": {
+                "type": "kniepdennis-neo4j-datasource",
+                "uid": "UID_REPLACE_neo"
+              },
+              "refId": "A"
+            }
+          ],
+          "title": "neo4j config",
+          "transformations": [],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "kniepdennis-neo4j-datasource",
+            "uid": "UID_REPLACE_neo"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              "mappings": [],
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 11,
+            "w": 7,
+            "x": 16,
+            "y": 10
+          },
+          "id": 3,
+          "options": {
+            "displayLabels": [
+              "percent"
+            ],
+            "legend": {
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "values": [
+                "percent",
+                "value"
+              ]
+            },
+            "pieType": "donut",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "cypherQuery": "CALL db.stats.retrieve('GRAPH COUNTS') YIELD section, data AS data\r\nUNWIND data.nodes AS nodeData\r\nUNWIND data.relationships AS relData\r\nRETURN \r\n  SUM(CASE WHEN relData.relationshipType = \"GRID_ROUTE_LINK\" THEN relData.count ELSE 0 END) AS gridRouteLinkRelCount,\r\n  SUM(CASE WHEN nodeData.label = \"GRID_ROUTE\" THEN nodeData.count ELSE 0 END) AS gridRouteNodeCount\r\n\r\n\r\n  \r\n  \r\n",
+              "datasource": {
+                "type": "kniepdennis-neo4j-datasource",
+                "uid": "UID_REPLACE_neo"
+              },
+              "refId": "A"
+            }
+          ],
+          "title": "neo4j count node and relation",
+          "transformations": [],
+          "type": "piechart"
         }
-      ]
-    },
-    "editable": true,
-    "fiscalYearStartMonth": 0,
-    "graphTooltip": 0,
-    "id": null,
-    "links": [],
-    "liveNow": false,
-    "panels": [
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "UID_TO_REPLACE"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisCenteredZero": false,
-              "axisColorMode": "text",
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 10,
-          "w": 11,
-          "x": 0,
-          "y": 0
-        },
-        "id": null,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "none"
-          }
-        },
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "UID_TO_REPLACE"
-            },
-            "editorMode": "builder",
-            "expr": "go_memstats_heap_alloc_bytes{instance=~\"grafana:3000|localhost:9090\"}",
-            "instant": false,
-            "range": true,
-            "refId": "A"
-          }
-        ],
-        "title": "memory alloc",
-        "type": "timeseries"
+      ],
+      "refresh": "",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": [],
+      "templating": {
+        "list": []
       },
-      {
-        "datasource": {
-          "type": "prometheus",
-          "uid": "UID_TO_REPLACE"
-        },
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisCenteredZero": false,
-              "axisColorMode": "text",
-              "axisLabel": "",
-              "axisPlacement": "auto",
-              "barAlignment": 0,
-              "drawStyle": "line",
-              "fillOpacity": 0,
-              "gradientMode": "none",
-              "hideFrom": {
-                "legend": false,
-                "tooltip": false,
-                "viz": false
-              },
-              "lineInterpolation": "linear",
-              "lineWidth": 1,
-              "pointSize": 5,
-              "scaleDistribution": {
-                "type": "linear"
-              },
-              "showPoints": "auto",
-              "spanNulls": false,
-              "stacking": {
-                "group": "A",
-                "mode": "none"
-              },
-              "thresholdsStyle": {
-                "mode": "off"
-              }
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "green",
-                  "value": null
-                },
-                {
-                  "color": "red",
-                  "value": 80
-                }
-              ]
-            }
-          },
-          "overrides": []
-        },
-        "gridPos": {
-          "h": 10,
-          "w": 11,
-          "x": 11,
-          "y": 0
-        },
-        "id": null,
-        "options": {
-          "legend": {
-            "calcs": [],
-            "displayMode": "list",
-            "placement": "bottom",
-            "showLegend": true
-          },
-          "tooltip": {
-            "mode": "single",
-            "sort": "none"
-          }
-        },
-        "targets": [
-          {
-            "datasource": {
-              "type": "prometheus",
-              "uid": "UID_TO_REPLACE"
-            },
-            "editorMode": "builder",
-            "expr": "prometheus_target_metadata_cache_entries{instance=~\"neo4j|prometheus|grafana|localhost:9090\"}",
-            "instant": false,
-            "range": true,
-            "refId": "A"
-          }
-        ],
-        "title": "memory alloc",
-        "type": "timeseries"
-      }
-    ],
-    "refresh": "",
-    "schemaVersion": 38,
-    "style": "dark",
-    "tags": [],
-    "templating": {
-      "list": []
-    },
-    "time": {
-      "from": "now-15m",
-      "to": "now"
-    },
-    "timepicker": {},
-    "timezone": "",
-    "title": "prometheus_monitoring",
-    "uid": null,
-    "version": 1,
-    "weekStart": ""
-  }
+      "time": {
+        "from": "now-15m",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "prometheus_monitoring",
+      "uid": null,
+      "version": 3,
+      "weekStart": ""
+    }
 }

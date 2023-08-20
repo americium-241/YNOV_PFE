@@ -47,17 +47,17 @@ r=$(curl -X POST "http://localhost:3000/api/datasources" \
             "editable": true
          }')
 
-UID_REPLACE=$(echo $r | awk -F, '{for(i=1;i<=NF;i++) {if ($i ~ /"uid":"/) {split($i, a, ":"); print a[2]}}}' | tr -d '"')
+UID_REPLACE_neo=$(echo $r | awk -F, '{for(i=1;i<=NF;i++) {if ($i ~ /"uid":"/) {split($i, a, ":"); print a[2]}}}' | tr -d '"')
 
 
 echo "Data source created."
 echo "r: $r"
 echo "Creating dashboard..."
-echo "UID_REPLACE: $UID_REPLACE"
+echo "UID_REPLACE: $UID_REPLACE_neo"
 
 
 
-DASHBOARD_JSON_CONTENT=$(sed "s/UID_TO_REPLACE/$UID_REPLACE/g" /scripts/dashboard_template.json)
+DASHBOARD_JSON_CONTENT=$(sed "s/UID_REPLACE_neo/$UID_REPLACE_neo/g" /scripts/dashboard_template.json)
 
 curl -X POST "http://localhost:3000/api/dashboards/db" \
      -u admin:admin \
@@ -80,13 +80,14 @@ r=$(curl -X POST "http://localhost:3000/api/datasources" \
             "editable": true
          }')
 
-UID_REPLACE=$(echo $r | awk -F, '{for(i=1;i<=NF;i++) {if ($i ~ /"uid":"/) {split($i, a, ":"); print a[2]}}}' | tr -d '"')
+UID_REPLACE_prom=$(echo $r | awk -F, '{for(i=1;i<=NF;i++) {if ($i ~ /"uid":"/) {split($i, a, ":"); print a[2]}}}' | tr -d '"')
 
 echo "Prometheus data source created."
 echo "r: $r"
 echo "Creating Prometheus dashboard..."
-echo "UID_REPLACE: $UID_REPLACE"
-DASHBOARD_JSON_CONTENT=$(sed "s/UID_TO_REPLACE/$UID_REPLACE/g" /scripts/prometheus_dashboard_template.json)
+echo "UID_REPLACE: $UID_REPLACE_prom"
+DASHBOARD_JSON_CONTENT=$(sed "s/UID_REPLACE_prom/$UID_REPLACE_prom/g" /scripts/prometheus_dashboard_template.json)
+DASHBOARD_JSON_CONTENT=$(sed "s/UID_REPLACE_neo/$UID_REPLACE_neo/g" <<< "$DASHBOARD_JSON_CONTENT")
 
 curl -X POST "http://localhost:3000/api/dashboards/db" \
      -u admin:admin \
