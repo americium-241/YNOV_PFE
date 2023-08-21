@@ -33,3 +33,9 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  streamlit-app:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit # Name of your Streamlit Dockerfile
+    ports:
+      - "8501:8501"

@@ -10,7 +10,7 @@
   {
     "datasource": {
       "type": "kniepdennis-neo4j-datasource",
-      "uid": "UID_TO_REPLACE"
+      "uid": "UID_REPLACE_neo"
     },
     "fieldConfig": {
       "defaults": {
@@ -129,7 +129,7 @@
         "cypherQuery": "MATCH (start:GRID_ROUTE), (end:GRID_ROUTE)\r\nWITH start, end, rand() AS random\r\nORDER BY random\r\nLIMIT 2\r\nMATCH path = shortestPath((start)-[*]-(end))\r\nUNWIND nodes(path) AS node\r\nRETURN node.id AS NodeID, node.latitude AS Latitude, node.longitude AS Longitude\r\n\r\n",
         "datasource": {
           "type": "kniepdennis-neo4j-datasource",
-          "uid": "UID_TO_REPLACE"
+          "uid": "UID_REPLACE_neo"
         },
         "refId": "A"
       }
@@ -152,7 +152,7 @@
   {
     "datasource": {
       "type": "kniepdennis-neo4j-datasource",
-      "uid": "UID_TO_REPLACE"
+      "uid": "UID_REPLACE_neo"
     },
     "description": "apoc version",
     "fieldConfig": {
@@ -209,7 +209,7 @@
         "cypherQuery": "RETURN apoc.version() AS version\r\n\r\n",
         "datasource": {
           "type": "kniepdennis-neo4j-datasource",
-          "uid": "UID_TO_REPLACE"
+          "uid": "UID_REPLACE_neo"
         },
         "refId": "A"
       }

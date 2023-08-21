@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 
 import numpy as np
-
+import os 
+os.environ["OPENAI_API_KEY"] ='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'
 def wait_for_neo4j():
     driver = None
     for _ in range(15):  
