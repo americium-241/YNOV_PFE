@@ -26,10 +26,12 @@ jobs:
     - name: run and test
       run: |
         # run docker-compose for 30sec
-        docker-compose up -d
+        echo "Starting docker-compose"
+        docker-compose up -d > /dev/null 2>&1
         sleep 30
         # run tests
-        # python -m unittest discover -s tests -p "*_test.py"
+        echo "run test unitaire"
+        ./test/allisUp.sh || exit 1
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
