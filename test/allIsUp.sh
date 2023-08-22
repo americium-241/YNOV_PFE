@@ -12,7 +12,7 @@ if ! curl -s --head  --request GET http://localhost:7474/ | grep "200 OK" > /dev
     exit 1
 fi
 
-if ! curl -s --head  --request GET http://localhost:3000/ | grep "200 OK" > /dev/null; then
+if ! curl -s --head  --request GET http://localhost:3001/ | grep "200 OK" > /dev/null; then
     echo "Grafana is not up"
     exit 1
 fi
