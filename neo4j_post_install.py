@@ -6,8 +6,7 @@ import numpy as np
 import pandas as pd
 
 import numpy as np
-import os 
-os.environ["OPENAI_API_KEY"] ='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'
+
 def wait_for_neo4j():
     driver = None
     for _ in range(15):  
@@ -174,6 +173,61 @@ def create_all_links(tx):
     MERGE (node1)-[:GRID_ROUTE_LINK {distance: dist, time: dist / 50}]->(node2)
     """
     tx.run(q)
+
+
+def add_parking_nodes(tx, parkings):
+    """Add parking nodes to the Neo4j database."""
+    query = """
+        UNWIND $parkings AS parking
+        CREATE (p:PARKING {
+            latitude: parking.latitude, 
+            longitude: parking.longitude,
+            insee: parking.insee,
+            ident: parking.ident,
+            adresse: parking.adresse,
+            nb_niv: parking.nb_niv,
+            nom: parking.nom,
+            total: parking.total,
+            url: parking.url,
+            geometry: point({longitude: parking.longitude, latitude: parking.latitude})
+        })
+    """
+    tx.run(query, parkings=parkings)
+
+def link_parkings_to_closest_grid(tx):
+    """Link parking nodes to the closest grid node."""
+    query = """
+    MATCH (p:PARKING), (g:GRID_ROUTE)
+    WITH p, g, point.distance(p.geometry, g.geometry) AS distance
+    ORDER BY p, distance
+    WITH p, collect({grid: g, distance: distance}) AS grids
+    UNWIND grids[0..1] AS closest_grid_data
+    WITH p, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
+    MERGE (p)-[:LINKS_TO {distance: dist}]->(closest_grid)
+    """
+    tx.run(query)
+
+
+def load_and_insert_parking_data():
+    # Step 1: Load the CSV into a Pandas DataFrame
+    parking_df = pd.read_csv("/data/st_park_p.csv", delimiter=";", usecols=["Geo Point", "insee", "ident", "adresse", "nb_niv", "nom", "total", "url"])
+    # Extract latitude and longitude from the "Geo Point" column
+    parking_df['latitude'] = parking_df['Geo Point'].str.split(", ").str[0].astype(float)
+    parking_df['longitude'] = parking_df['Geo Point'].str.split(", ").str[1].astype(float)
+    parking_df.drop(columns=["Geo Point"], inplace=True)
+    
+    # Convert the DataFrame to a list of dictionaries
+    parkings = parking_df.to_dict(orient="records")
+    
+    # Step 2: Insert parking data into Neo4j
+    with driver.session() as session:
+        session.write_transaction(add_parking_nodes, parkings)
+        session.write_transaction(link_parkings_to_closest_grid)
+    print("Parking nodes added to the database.", flush=True)
+
+# Call the function
+
+
     
 def build_database( bbox, batch_size):
     """Build the Neo4j database using the provided shapefile and bounding box."""
@@ -225,7 +279,9 @@ def build_database( bbox, batch_size):
     with driver.session() as session:
         session.write_transaction(connect_intersection_nodes)
     print("Links created 1." , flush=True)  
-    
+    print("loading parking...")
+    load_and_insert_parking_data()
+    print("parking created and connected")
     return
 
 
