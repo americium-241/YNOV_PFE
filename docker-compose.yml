@@ -25,6 +25,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.python
+    volumes:
+      - ./data:/data
     depends_on:
       - neo4j
   prometheus:
