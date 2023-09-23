@@ -228,7 +228,7 @@ def link_parkings_to_closest_grid(tx):
     WITH p, collect({grid: g, distance: distance}) AS grids
     UNWIND grids[0..1] AS closest_grid_data
     WITH p, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
-    MERGE (p)-[:LINKS_TO {distance: dist}]->(closest_grid)
+    MERGE (p)-[:GRID_ROUTE_LINK {distance: dist}]->(closest_grid)
     """
     tx.run(query)
 
@@ -241,7 +241,7 @@ def link_parkings_to_closest_grid_car(tx):
     WITH p, collect({grid: g, distance: distance}) AS grids
     UNWIND grids[0..1] AS closest_grid_data
     WITH p, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
-    MERGE (p)-[:LINKS_TO {distance: dist}]->(closest_grid)
+    MERGE (p)-[:GRID_ROUTE_CAR_LINK {distance: dist}]->(closest_grid)
     """
     tx.run(query)
 
@@ -302,7 +302,7 @@ def link_vcubs_to_closest_grid(tx):
     WITH v, collect({grid: g, distance: distance}) AS grids
     UNWIND grids[0..1] AS closest_grid_data
     WITH v, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
-    MERGE (v)-[:LINKS_TO {distance: dist}]->(closest_grid)
+    MERGE (v)-[:GRID_ROUTE_LINK {distance: dist}]->(closest_grid)
     """
     tx.run(query)
 
@@ -315,7 +315,7 @@ def link_vcubs_to_closest_grid_velo(tx):
     WITH v, collect({grid: g, distance: distance}) AS grids
     UNWIND grids[0..1] AS closest_grid_data
     WITH v, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
-    MERGE (v)-[:LINKS_TO {distance: dist}]->(closest_grid)
+    MERGE (v)-[:GRID_ROUTE_VELO_LINK {distance: dist}]->(closest_grid)
     """
     tx.run(query)
 
@@ -352,7 +352,53 @@ def download_file(url, save_path):
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
 
-    
+def add_time_property(tx):
+    # For GRID_ROUTE_LINK (5 km/hr)
+    grid_route_query = """
+    MATCH ()-[r:GRID_ROUTE_LINK]->()
+    SET r.time = r.distance / 5.0
+    """
+    tx.run(grid_route_query)
+
+    # For GRID_ROUTE_CAR_LINK (50 km/hr)
+    grid_route_car_query = """
+    MATCH ()-[r:GRID_ROUTE_CAR_LINK]->()
+    SET r.time = r.distance / 50.0
+    """
+    tx.run(grid_route_car_query)
+
+    # For GRID_ROUTE_VELO_LINK (25 km/hr)
+    grid_route_velo_query = """
+    MATCH ()-[r:GRID_ROUTE_VELO_LINK]->()
+    SET r.time = r.distance / 25.0
+    """
+    tx.run(grid_route_velo_query)
+
+    return 
+
+def add_carbon_property(tx):
+    # For GRID_ROUTE_LINK (1 grams/km)
+    grid_route_query = """
+    MATCH ()-[r:GRID_ROUTE_LINK]->()
+    SET r.carbon_rate = 1 / r.time 
+    """
+    tx.run(grid_route_query)
+
+    # For GRID_ROUTE_CAR_LINK (120 grams/km)
+    grid_route_car_query = """
+    MATCH ()-[r:GRID_ROUTE_CAR_LINK]->()
+    SET r.carbon_rate = (r.distance * 120) / r.time
+    """
+    tx.run(grid_route_car_query)
+
+    # For GRID_ROUTE_VELO_LINK (5 grams/km)
+    grid_route_velo_query = """
+    MATCH ()-[r:GRID_ROUTE_VELO_LINK]->()
+    SET r.carbon_rate = (r.distance * 5) / r.time 
+    """
+    tx.run(grid_route_velo_query)
+
+
 def build_database( bbox, batch_size):
     """Build the Neo4j database using the provided shapefile and bounding box."""
 
@@ -422,6 +468,11 @@ def build_database( bbox, batch_size):
     print("loading velo...")
     load_and_insert_vcub_data()
     print("velo created and connected")
+    with driver.session() as session:
+        session.write_transaction(add_time_property)
+        session.write_transaction(add_carbon_property)
+    print("carbon print and time set")
+
     return
 
 
