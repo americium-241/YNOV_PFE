@@ -1,4 +1,4 @@
 # Ensure shell script uses LF.
 Dockerfile  eol=lf
-*.sh        eol=lf
+*.sh        eol=crlf
 *.bat       eol=crlf
