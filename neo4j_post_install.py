@@ -174,6 +174,31 @@ def create_all_links(tx):
     """
     tx.run(q)
 
+def duplicate_nodes(tx, original_label, copy_label):
+    """Duplicate nodes in the Neo4j database for the copied grid."""
+    query = f"""
+        MATCH (n:{original_label})
+        CREATE (m:{copy_label} {{
+            latitude: n.latitude, 
+            longitude: n.longitude,
+            road_id: n.road_id,
+            intersection_id: n.intersection_id,
+            id: n.id,
+            geometry: point({{longitude: n.longitude, latitude: n.latitude}})
+        }})
+    """
+    tx.run(query)
+
+def duplicate_links(tx, original_label, original_rel_type, copy_label, copy_rel_type):
+    """Duplicate relationships in the Neo4j database for the copied grid."""
+    q = f"""
+    MATCH (node1:{original_label})-[r:{original_rel_type}]->(node2:{original_label})
+    MATCH (node1_copy:{copy_label} {{id: node1.id}})
+    MATCH (node2_copy:{copy_label} {{id: node2.id}})
+    WHERE NOT (node1_copy)-[:{copy_rel_type}]->(node2_copy)  // Avoid creating duplicates
+    CREATE (node1_copy)-[:{copy_rel_type} {{distance: r.distance, time: r.time}}]->(node2_copy)
+    """
+    tx.run(q)
 
 def add_parking_nodes(tx, parkings):
     """Add parking nodes to the Neo4j database."""
@@ -207,6 +232,19 @@ def link_parkings_to_closest_grid(tx):
     """
     tx.run(query)
 
+def link_parkings_to_closest_grid_car(tx):
+    """Link parking nodes to the closest grid node."""
+    query = """
+    MATCH (p:PARKING), (g:GRID_ROUTE_CAR)
+    WITH p, g, point.distance(p.geometry, g.geometry) AS distance
+    ORDER BY p, distance
+    WITH p, collect({grid: g, distance: distance}) AS grids
+    UNWIND grids[0..1] AS closest_grid_data
+    WITH p, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
+    MERGE (p)-[:LINKS_TO {distance: dist}]->(closest_grid)
+    """
+    tx.run(query)
+
 
 def load_and_insert_parking_data():
     # Step 1: Load the CSV into a Pandas DataFrame
@@ -223,10 +261,96 @@ def load_and_insert_parking_data():
     with driver.session() as session:
         session.write_transaction(add_parking_nodes, parkings)
         session.write_transaction(link_parkings_to_closest_grid)
+        session.write_transaction(link_parkings_to_closest_grid_car)
     print("Parking nodes added to the database.", flush=True)
 
-# Call the function
 
+def add_vcub_nodes(tx, vcubs):
+    """Add VCUB nodes to the Neo4j database."""
+    query = """
+        UNWIND $vcubs AS vcub
+        CREATE (v:VCUB {
+            latitude: vcub.latitude, 
+            longitude: vcub.longitude,
+            insee: vcub.INSEE,
+            commune: vcub.commune,
+            gml_id: vcub.gml_id,
+            GID: vcub.GID,
+            IDENT: vcub.IDENT,
+            TYPE: vcub.TYPE,
+            NOM: vcub.NOM,
+            ETAT: vcub.ETAT,
+            NBPLACES: vcub.NBPLACES,
+            NBVELOS: vcub.NBVELOS,
+            NBELEC: vcub.NBELEC,
+            NBCLASSIQ: vcub.NBCLASSIQ,
+            CDATE: vcub.CDATE,
+            MDATE: vcub.MDATE,
+            code_commune: vcub.code_commune,
+            GEOM_O: vcub.GEOM_O,
+            geometry: point({longitude: vcub.longitude, latitude: vcub.latitude})
+        })
+    """
+    tx.run(query, vcubs=vcubs)
+
+def link_vcubs_to_closest_grid(tx):
+    """Link VCUB nodes to the closest grid node."""
+    query = """
+    MATCH (v:VCUB), (g:GRID_ROUTE)
+    WITH v, g, point.distance(v.geometry, g.geometry) AS distance
+    ORDER BY v, distance
+    WITH v, collect({grid: g, distance: distance}) AS grids
+    UNWIND grids[0..1] AS closest_grid_data
+    WITH v, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
+    MERGE (v)-[:LINKS_TO {distance: dist}]->(closest_grid)
+    """
+    tx.run(query)
+
+def link_vcubs_to_closest_grid_velo(tx):
+    """Link VCUB nodes to the closest grid node."""
+    query = """
+    MATCH (v:VCUB), (g:GRID_ROUTE_VELO)
+    WITH v, g, point.distance(v.geometry, g.geometry) AS distance
+    ORDER BY v, distance
+    WITH v, collect({grid: g, distance: distance}) AS grids
+    UNWIND grids[0..1] AS closest_grid_data
+    WITH v, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
+    MERGE (v)-[:LINKS_TO {distance: dist}]->(closest_grid)
+    """
+    tx.run(query)
+
+
+def load_and_insert_vcub_data():
+    # Step 1: Load the CSV into a Pandas DataFrame
+    vcub_df = pd.read_csv("/data/ci_vcub_p.csv", delimiter=";", usecols=["Geo Point", "INSEE", "commune", "gml_id", "GID", "IDENT", "TYPE", "NOM", "ETAT", "NBPLACES", "NBVELOS", "NBELEC", "NBCLASSIQ", "CDATE", "MDATE", "code_commune", "GEOM_O"])
+    # Extract latitude and longitude from the "Geo Point" column
+    vcub_df['latitude'] = vcub_df['Geo Point'].str.split(", ").str[0].astype(float)
+    vcub_df['longitude'] = vcub_df['Geo Point'].str.split(", ").str[1].astype(float)
+    vcub_df.drop(columns=["Geo Point"], inplace=True)
+    
+    # Convert the DataFrame to a list of dictionaries
+    vcubs = vcub_df.to_dict(orient="records")
+    
+    # Step 2: Insert VCUB data into Neo4j
+    with driver.session() as session:
+        session.write_transaction(add_vcub_nodes, vcubs)
+        session.write_transaction(link_vcubs_to_closest_grid)
+        session.write_transaction(link_vcubs_to_closest_grid_velo)
+    print("VCUB nodes added to the database.", flush=True)
+
+# Call the function
+def download_file(url, save_path):
+    """Download a file from a URL and save it to a local path."""    
+    # Headers with a custom User-Agent
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36'
+    }
+
+    with requests.get(url, headers=headers, stream=True) as response:
+        response.raise_for_status()
+        with open(save_path, 'wb') as file:
+            for chunk in response.iter_content(chunk_size=8192):
+                file.write(chunk)
 
     
 def build_database( bbox, batch_size):
@@ -278,10 +402,26 @@ def build_database( bbox, batch_size):
     print("Links created 0.", flush=True)
     with driver.session() as session:
         session.write_transaction(connect_intersection_nodes)
+        # Duplicate nodes for car
+        print("Duplicate nodes for car")
+        session.write_transaction(duplicate_nodes, "GRID_ROUTE", "GRID_ROUTE_CAR")
+        # Duplicate relationships for car
+        print("Duplicate relationships for car")
+        session.write_transaction(duplicate_links, "GRID_ROUTE", "GRID_ROUTE_LINK", "GRID_ROUTE_CAR", "GRID_ROUTE_CAR_LINK")
+        
+        # Duplicate nodes for velo
+        print("Duplicate nodes for velo")
+        session.write_transaction(duplicate_nodes, "GRID_ROUTE", "GRID_ROUTE_VELO")
+        # Duplicate relationships for velo
+        print("Duplicate relationships for velo")
+        session.write_transaction(duplicate_links, "GRID_ROUTE", "GRID_ROUTE_LINK", "GRID_ROUTE_VELO", "GRID_ROUTE_VELO_LINK")
     print("Links created 1." , flush=True)  
     print("loading parking...")
     load_and_insert_parking_data()
     print("parking created and connected")
+    print("loading velo...")
+    load_and_insert_vcub_data()
+    print("velo created and connected")
     return
 
 
@@ -302,13 +442,7 @@ def connect_intersection_nodes(tx):
     tx.run(query)
 
     
-def download_file(url, save_path):
-    """Download a file from a URL and save it to a local path."""
-    with requests.get(url, stream=True) as response:
-        response.raise_for_status()
-        with open(save_path, 'wb') as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
+
 
 def extract_7z(file_path, extract_path):
     """Extract a .7z file to a specified directory."""
