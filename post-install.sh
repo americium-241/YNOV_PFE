@@ -8,7 +8,7 @@ echo "Starting Grafana in the background..."
 echo "Grafana started."
 
 # Give Grafana some time to initialize
-sleep 20
+sleep 60
 
 echo "Installing kniepdennis-neo4j-datasource plugin..."
 # Install the plugin
@@ -22,7 +22,7 @@ killall grafana-server
 echo "Grafana restarted."
 
 # Another wait to ensure Grafana is up after restart
-sleep 20
+sleep 60
 
 echo "Creating Neo4j_db data source..."
 # Use curl to create a new data source
