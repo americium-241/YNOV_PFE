@@ -171,6 +171,7 @@ def create_all_links(tx):
     UNWIND node2s[0..2] AS node2_data
     WITH node1, node2_data.node AS node2, node2_data.distance AS dist
     MERGE (node1)-[:GRID_ROUTE_LINK {distance: dist, time: dist / 50}]->(node2)
+    MERGE (node2)-[:GRID_ROUTE_LINK {distance: dist, time: dist / 50}]->(node1)
     """
     tx.run(q)
 
@@ -229,6 +230,7 @@ def link_parkings_to_closest_grid(tx):
     UNWIND grids[0..1] AS closest_grid_data
     WITH p, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
     MERGE (p)-[:GRID_ROUTE_LINK {distance: dist}]->(closest_grid)
+    MERGE (closest_grid)-[:GRID_ROUTE_LINK {distance: dist}]->(p)
     """
     tx.run(query)
 
@@ -242,6 +244,7 @@ def link_parkings_to_closest_grid_car(tx):
     UNWIND grids[0..1] AS closest_grid_data
     WITH p, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
     MERGE (p)-[:GRID_ROUTE_CAR_LINK {distance: dist}]->(closest_grid)
+    MERGE (closest_grid)-[:GRID_ROUTE_CAR_LINK {distance: dist}]->(p)
     """
     tx.run(query)
 
@@ -303,6 +306,7 @@ def link_vcubs_to_closest_grid(tx):
     UNWIND grids[0..1] AS closest_grid_data
     WITH v, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
     MERGE (v)-[:GRID_ROUTE_LINK {distance: dist}]->(closest_grid)
+    MERGE (closest_grid)-[:GRID_ROUTE_LINK {distance: dist}]->(v)
     """
     tx.run(query)
 
@@ -316,6 +320,7 @@ def link_vcubs_to_closest_grid_velo(tx):
     UNWIND grids[0..1] AS closest_grid_data
     WITH v, closest_grid_data.grid AS closest_grid, closest_grid_data.distance AS dist
     MERGE (v)-[:GRID_ROUTE_VELO_LINK {distance: dist}]->(closest_grid)
+    MERGE (closest_grid)-[:GRID_ROUTE_VELO_LINK {distance: dist}]->(v)
     """
     tx.run(query)
 
@@ -399,24 +404,35 @@ def add_carbon_property(tx):
     tx.run(grid_route_velo_query)
 
 
-def build_database( bbox, batch_size):
+import os
+
+def build_database(bbox, batch_size):
     """Build the Neo4j database using the provided shapefile and bounding box."""
 
     url = "https://wxs.ign.fr/pfinqfa9win76fllnimpfmbi/telechargement/inspire/ROUTE500-France-2021$ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03/file/ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03.7z"
-    save_path = "ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03.7z"
-    download_file(url, save_path)
-    print("Download complete.", flush=True)
+    save_path = "/data/ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03.7z"
+    
+    if not os.path.exists(save_path):
+        try:
+            download_file(url, save_path)
+            print("Download complete.", flush=True)
+        except Exception as e:
+            print(f"Failed to download due to: {e}. Using local file.", flush=True)
     
     # Step 2: Extract the .7z file
     extract_path = "extracted_files/"
     extract_7z(save_path, extract_path)
     print("Extraction complete.", flush=True)
-    # Step 1: Load and filter the shapefile
-    df = read_and_filter_shapefile("./"+extract_path+'ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03/ROUTE500/1_DONNEES_LIVRAISON_2022-01-00175/R500_3-0_SHP_LAMB93_FXX-ED211/RESEAU_ROUTIER/TRONCON_ROUTE.shp', bbox)
+
+    # Step 3: Load and filter the shapefile
+    shapefile_path = os.path.join(extract_path, 'ROUTE500_3-0__SHP_LAMB93_FXX_2021-11-03/ROUTE500/1_DONNEES_LIVRAISON_2022-01-00175/R500_3-0_SHP_LAMB93_FXX-ED211/RESEAU_ROUTIER/TRONCON_ROUTE.shp')
+    df = read_and_filter_shapefile(shapefile_path, bbox)
     print("Shapefile loaded and filtered.", flush=True)
-    # Step 2: Extract the coordinates
+
+    # Step 4: Extract the coordinates
     coords_df = extract_coordinates(df)
     print("Coordinates extracted.", flush=True)
+
     coords_df = assign_intersection_id_grid(coords_df, threshold=3)
     print("Intersection IDs assigned.", flush=True)
     # Step 3: Connect to the Neo4j database
@@ -489,6 +505,7 @@ def connect_intersection_nodes(tx):
         WITH n1, n2
         WHERE id(n1) < id(n2)
         MERGE (n1)-[:GRID_ROUTE_LINK {distance: 1, time: 1}]->(n2)
+        MERGE (n2)-[:GRID_ROUTE_LINK {distance: 1, time: 1}]->(n1)
     """
     tx.run(query)
 

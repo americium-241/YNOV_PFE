@@ -2,7 +2,7 @@
 # Give Grafana some time to initialize
 
 
-echo "Starting Grafana in the background..."
+echo "Starting Grafana in the background..."s
 # Start Grafana in the background
 
 echo "Grafana started."
