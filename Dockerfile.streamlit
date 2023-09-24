@@ -8,11 +8,7 @@ WORKDIR /app
 COPY . /app
 
 # Install required packages
-<<<<<<< HEAD
 RUN pip install --trusted-host pypi.python.org streamlit streamlit-folium neo4j geopy folium langchain openai duckduckgo-search
-=======
-RUN pip install --trusted-host pypi.python.org streamlit streamlit-folium neo4j geopy folium langchain openai
->>>>>>> cdec0aa341b69c68b96d95e78c0694cf2523111c
 
 # Run streamlit when the container launches
 CMD ["streamlit", "run", "./streamlit_carte.py"]
