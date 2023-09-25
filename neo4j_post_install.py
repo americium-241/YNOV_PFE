@@ -382,28 +382,143 @@ def add_time_property(tx):
     return 
 
 def add_carbon_property(tx):
-    # For GRID_ROUTE_LINK (1 grams/km)
+    # Batch update for GRID_ROUTE_LINK
     grid_route_query = """
-    MATCH ()-[r:GRID_ROUTE_LINK]->()
-    SET r.carbon_rate = 1 / r.time 
+    CALL apoc.periodic.iterate(
+        "MATCH ()-[r:GRID_ROUTE_LINK]->() RETURN r", 
+        "SET r.carbon_rate = 1 / r.time", 
+        {batchSize: 10000, iterateList: true, parallel: false}
+    )
     """
     tx.run(grid_route_query)
 
-    # For GRID_ROUTE_CAR_LINK (120 grams/km)
+    # Batch update for GRID_ROUTE_CAR_LINK
     grid_route_car_query = """
-    MATCH ()-[r:GRID_ROUTE_CAR_LINK]->()
-    SET r.carbon_rate = (r.distance * 120) / r.time
+    CALL apoc.periodic.iterate(
+        "MATCH ()-[r:GRID_ROUTE_CAR_LINK]->() RETURN r", 
+        "SET r.carbon_rate = (r.distance * 120) / r.time", 
+        {batchSize: 10000, iterateList: true, parallel: false}
+    )
     """
     tx.run(grid_route_car_query)
 
-    # For GRID_ROUTE_VELO_LINK (5 grams/km)
+    # Batch update for GRID_ROUTE_VELO_LINK
     grid_route_velo_query = """
-    MATCH ()-[r:GRID_ROUTE_VELO_LINK]->()
-    SET r.carbon_rate = (r.distance * 5) / r.time 
+    CALL apoc.periodic.iterate(
+        "MATCH ()-[r:GRID_ROUTE_VELO_LINK]->() RETURN r", 
+        "SET r.carbon_rate = (r.distance * 5) / r.time", 
+        {batchSize: 10000, iterateList: true, parallel: false}
+    )
     """
     tx.run(grid_route_velo_query)
 
 
+def project_graph_time(tx):
+    query = """
+    CALL gds.graph.project(
+        'GRAPH_TIME',
+        {
+            GRID_ROUTE_CAR: {
+                label: 'GRID_ROUTE_CAR',
+                properties: ['latitude', 'longitude']
+            },
+            GRID_ROUTE_VELO: {
+                label: 'GRID_ROUTE_VELO',
+                properties: ['latitude', 'longitude']
+            },
+            GRID_ROUTE: {
+                label: 'GRID_ROUTE',
+                properties: ['latitude', 'longitude']
+            },
+            PARKING: {
+                label: 'PARKING',
+                properties: ['latitude', 'longitude']
+            },
+            VCUB: {
+                label: 'VCUB',
+                properties: ['latitude', 'longitude']
+            }
+        },
+        {
+            GRID_ROUTE_CAR_LINK: {
+                type: 'GRID_ROUTE_CAR_LINK',
+                properties: ['time','carbon_rate']
+            },
+            GRID_ROUTE_LINK: {
+                type: 'GRID_ROUTE_LINK',
+                properties: ['time','carbon_rate']
+            },
+            GRID_ROUTE_VELO_LINK: {
+                type: 'GRID_ROUTE_VELO_LINK',
+                properties: ['time','carbon_rate']
+            }
+        }
+    )
+    """
+    tx.run(query)
+def project_graph_time_vcub(tx):
+    query = """
+    CALL gds.graph.project(
+        'GRAPH_TIME_VCUB',
+        {
+            GRID_ROUTE_VELO: {
+                label: 'GRID_ROUTE_VELO',
+                properties: ['latitude', 'longitude']
+            },
+            GRID_ROUTE: {
+                label: 'GRID_ROUTE',
+                properties: ['latitude', 'longitude']
+            },
+            VCUB: {
+                label: 'VCUB',
+                properties: ['latitude', 'longitude']
+            }
+        },
+        {
+            GRID_ROUTE_LINK: {
+                type: 'GRID_ROUTE_LINK',
+                properties: ['time','carbon_rate']
+            },
+            GRID_ROUTE_VELO_LINK: {
+                type: 'GRID_ROUTE_VELO_LINK',
+                properties: ['time','carbon_rate']
+            }
+        }
+    )
+    """
+    tx.run(query)
+
+def project_graph_time_car(tx):
+    query = """
+    CALL gds.graph.project(
+        'GRAPH_TIME_CAR',
+        {
+            GRID_ROUTE_CAR: {
+                label: 'GRID_ROUTE_CAR',
+                properties: ['latitude', 'longitude']
+            },
+            GRID_ROUTE: {
+                label: 'GRID_ROUTE',
+                properties: ['latitude', 'longitude']
+            },
+            PARKING: {
+                label: 'PARKING',
+                properties: ['latitude', 'longitude']
+            }
+        },
+        {
+            GRID_ROUTE_CAR_LINK: {
+                type: 'GRID_ROUTE_CAR_LINK',
+                properties: ['time','carbon_rate']
+            },
+            GRID_ROUTE_LINK: {
+                type: 'GRID_ROUTE_LINK',
+                properties: ['time','carbon_rate']
+            }
+        }
+    )
+    """
+    tx.run(query)
 import os
 
 def build_database(bbox, batch_size):
@@ -486,7 +601,12 @@ def build_database(bbox, batch_size):
     print("velo created and connected")
     with driver.session() as session:
         session.write_transaction(add_time_property)
+        print("loading time")
         session.write_transaction(add_carbon_property)
+        print("loading carbon")
+        session.write_transaction(project_graph_time)       
+        session.write_transaction(project_graph_time_car)       
+        session.write_transaction(project_graph_time_vcub)
     print("carbon print and time set")
 
     return

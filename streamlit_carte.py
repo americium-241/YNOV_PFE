@@ -29,6 +29,7 @@ def find_closest_node(tx, location, label="GRID_ROUTE"):
     result = tx.run(query, lat=location[0], long=location[1])
     return result.single().value()
 
+
 def find_shortest_path(tx, start_node, end_node, modalities=["foot"], metric="time"):
     # Map modalities to corresponding link types
     link_type_map = {
@@ -44,24 +45,58 @@ def find_shortest_path(tx, start_node, end_node, modalities=["foot"], metric="ti
     # Use the chosen metric as the cost
     cost = "distance"  # Default to distance
     if metric == "time":
-        cost = "r.time"
+        cost = "time"
     elif metric == "carbon":
-        cost = "r.carbon_rate"
+        cost = "carbon_rate"
 
+    # Determine the graph projection to use based on the modalities
+    graph_projection = "GRAPH_TIME"
+    if set(modalities) == {"foot", "car"}:
+        graph_projection = "GRAPH_TIME_CAR"
+    elif set(modalities) == {"foot", "velo"}:
+        graph_projection = "GRAPH_TIME_VCUB"
+    print(start_node,end_node)
+    # Modify the query to use the A* algorithm with the specified graph projection
     query = f"""
-    MATCH path = shortestPath((start)-[r*..1000]-(end))
-    WHERE id(start) = $start_id AND id(end) = $end_id AND any(rel IN relationships(path) WHERE type(rel) =~ "{link_types_string}")
-    WITH path, reduce(totalCost = 0, rel IN relationships(path) | totalCost + rel.{cost}) AS cost
-    ORDER BY cost ASC
-    LIMIT 1
-    UNWIND nodes(path) AS node
-    UNWIND relationships(path) AS rel
-    RETURN DISTINCT node.id AS NodeID, node.road_id AS RoadID, node.latitude AS Latitude, node.longitude AS Longitude, type(rel) AS Modality, cost
+    MATCH (source), (target)
+    WHERE id(source) = $start_id AND id(target) = $end_id
+    CALL gds.shortestPath.astar.stream('{graph_projection}', {{
+        sourceNode: source,
+        targetNode: target,
+        latitudeProperty: 'latitude',
+        longitudeProperty: 'longitude',
+        relationshipWeightProperty: '{cost}'
+    }})
+    YIELD index, sourceNode, targetNode, totalCost, nodeIds, costs, path
+    RETURN nodeIds
     """
-    
     result = tx.run(query, start_id=start_node.id, end_id=end_node.id)
+
+    # Extracting the node IDs from the result
+    node_ids = [record["nodeIds"] for record in result][0]  # Assuming you only have one result
+
+    return node_ids
+
+def fetch_node_details(tx, node_ids):
+    query = """
+    UNWIND $node_ids AS node_id
+    MATCH (n) WHERE id(n) = node_id
+    RETURN id(n) AS NodeID, n.road_id AS RoadID, n.latitude AS Latitude, n.longitude AS Longitude, labels(n) AS Labels
+    """
+    result = tx.run(query, node_ids=node_ids)
     return [record for record in result]
 
+
+
+
+
+modality_colors = {
+    "GRID_ROUTE": "blue",
+    "GRID_ROUTE_CAR": "red",
+    "GRID_ROUTE_VELO": "green",
+    "PARKING" : "yellow",
+    "VCUB" : "black"
+}
 
 # Initialize the geolocator
 geolocator = Nominatim(user_agent="geoapiExercises")
@@ -111,7 +146,7 @@ if st.button("Find Shortest Path"):
         logging.info(f"Start Location: {start_location}, End Location: {end_location}")
 
         # Connect to Neo4j
-        driver = GraphDatabase.driver("neo4j://neo4j:7687", auth=("neo4j", "password"))
+        driver = GraphDatabase.driver("neo4j://localhost:7687", auth=("neo4j", "password"))
 
         # Find closest nodes to the specified locations
         logging.info("Finding closest nodes...")
@@ -123,7 +158,9 @@ if st.button("Find Shortest Path"):
             # Fetch the shortest path between the specified nodes
             logging.info("Calculating shortest path...")
             path_nodes = session.read_transaction(find_shortest_path, start_node, end_node, chosen_modalities, chosen_metric)
-
+            logging.info(path_nodes)
+            node_details = session.read_transaction(fetch_node_details, path_nodes)
+            logging.info(node_details)
         
         # Close the connection
         driver.close()
@@ -138,13 +175,24 @@ if st.button("Find Shortest Path"):
         # Extract locations for the path line
         locations = []
         unique_road_ids = set()
-        for node in path_nodes:
-            location = [node['Latitude'], node['Longitude']]
-            locations.append(location)
-            unique_road_ids.add(node['RoadID'])
+        previous_modality = None
+        modality_changes = 0
+
+            # Extract locations for the path line
+        locations = []
+        unique_road_ids = set()
+        for i in range(1, len(node_details)):
+            start = [node_details[i-1]['Latitude'], node_details[i-1]['Longitude']]
+            end = [node_details[i]['Latitude'], node_details[i]['Longitude']]
+            
+            modality = next((label for label in node_details[i]['Labels'] if label in modality_colors), None)
+            color = modality_colors.get(modality, "black")  # default to black if modality is not recognized
+
+            folium.PolyLine(locations=[start, end], color=color, weight=2.5, opacity=1).add_to(m)
+
         
         # Adding a line between the markers to visualize the path
-        folium.PolyLine(locations=locations, color="blue", weight=2.5, opacity=1).add_to(m)
+        #folium.PolyLine(locations=locations, color="blue", weight=2.5, opacity=1).add_to(m)
 
         # Adding markers for the start and end points
         folium.Marker(start_location, popup="Start", icon=folium.Icon(color='green')).add_to(m)
@@ -154,6 +202,7 @@ if st.button("Find Shortest Path"):
         if 'm' in locals():  # Check if 'm' (the map object) has been created
             st_folium(m, width=800, height=600, returned_objects=[])
         logging.info("Shortest path visualization completed.")
+
         # Find the name of the road for each unique road_id using reverse geocoding
         road_names = []
 
@@ -174,8 +223,8 @@ class Map_tool(BaseTool):
         """Use the tool."""
         start= start_end.split('|')[0]
         end = start_end.split('|')[1]
-        start_location = geolocator.geocode(start)
-        end_location = geolocator.geocode(end)
+        start_location = geolocator.geocode(start_address)
+        end_location = geolocator.geocode(end_address)
 
         # Check if the addresses are valid
         if start_location is None or end_location is None:
@@ -185,24 +234,26 @@ class Map_tool(BaseTool):
             end_location = [end_location.latitude, end_location.longitude]
             logging.info(f"Start Location: {start_location}, End Location: {end_location}")
 
-        
-        driver = GraphDatabase.driver("neo4j://neo4j:7687", auth=("neo4j", "password"))
+            # Connect to Neo4j
+            driver = GraphDatabase.driver("neo4j://localhost:7687", auth=("neo4j", "password"))
 
-        # Find closest nodes to the specified locations
-        logging.info("Finding closest nodes...")
-        with driver.session() as session:
-            start_node = session.read_transaction(find_closest_node, start_location)
-            end_node = session.read_transaction(find_closest_node, end_location)
-            logging.info(f"Start Node ID: {start_node.id}, End Node ID: {end_node.id}")
+            # Find closest nodes to the specified locations
+            logging.info("Finding closest nodes...")
+            with driver.session() as session:
+                start_node = session.read_transaction(find_closest_node, start_location)
+                end_node = session.read_transaction(find_closest_node, end_location)
+                logging.info(f"Start Node ID: {start_node.id}, End Node ID: {end_node.id}")
+                
+                # Fetch the shortest path between the specified nodes
+                logging.info("Calculating shortest path...")
+                path_nodes = session.read_transaction(find_shortest_path, start_node, end_node, chosen_modalities, chosen_metric)
+                logging.info(path_nodes)
+                node_details = session.read_transaction(fetch_node_details, path_nodes)
+                logging.info(node_details)
             
-            # Fetch the shortest path between the specified nodes
-            logging.info("Calculating shortest path...")
-            path_nodes = session.read_transaction(find_shortest_path, start_node, end_node, chosen_modalities, chosen_metric)
-
-        
-        # Close the connection
-        driver.close()
-        
+            # Close the connection
+            driver.close()
+            
         # Check if there is a path
         if not path_nodes:
             st.error("No path found between the specified locations.")
@@ -213,13 +264,24 @@ class Map_tool(BaseTool):
             # Extract locations for the path line
             locations = []
             unique_road_ids = set()
-            for node in path_nodes:
-                location = [node['Latitude'], node['Longitude']]
-                locations.append(location)
-                unique_road_ids.add(node['RoadID'])
+            previous_modality = None
+            modality_changes = 0
+
+                # Extract locations for the path line
+            locations = []
+            unique_road_ids = set()
+            for i in range(1, len(node_details)):
+                start = [node_details[i-1]['Latitude'], node_details[i-1]['Longitude']]
+                end = [node_details[i]['Latitude'], node_details[i]['Longitude']]
+                
+                modality = next((label for label in node_details[i]['Labels'] if label in modality_colors), None)
+                color = modality_colors.get(modality, "black")  # default to black if modality is not recognized
+
+                folium.PolyLine(locations=[start, end], color=color, weight=2.5, opacity=1).add_to(m)
+
             
             # Adding a line between the markers to visualize the path
-            folium.PolyLine(locations=locations, color="blue", weight=2.5, opacity=1).add_to(m)
+            #folium.PolyLine(locations=locations, color="blue", weight=2.5, opacity=1).add_to(m)
 
             # Adding markers for the start and end points
             folium.Marker(start_location, popup="Start", icon=folium.Icon(color='green')).add_to(m)
@@ -229,6 +291,9 @@ class Map_tool(BaseTool):
             if 'm' in locals():  # Check if 'm' (the map object) has been created
                 st_folium(m, width=800, height=600, returned_objects=[])
             logging.info("Shortest path visualization completed.")
+
+            # Find the name of the road for each unique road_id using reverse geocoding
+            road_names = []
 
         return 
 

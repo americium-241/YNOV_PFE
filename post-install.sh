@@ -22,7 +22,7 @@ killall grafana-server
 echo "Grafana restarted."
 
 # Another wait to ensure Grafana is up after restart
-sleep 60
+sleep 30
 
 echo "Creating Neo4j_db data source..."
 # Use curl to create a new data source
