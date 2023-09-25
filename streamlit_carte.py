@@ -146,7 +146,7 @@ if st.button("Find Shortest Path"):
         logging.info(f"Start Location: {start_location}, End Location: {end_location}")
 
         # Connect to Neo4j
-        driver = GraphDatabase.driver("neo4j://localhost:7687", auth=("neo4j", "password"))
+        driver = GraphDatabase.driver("neo4j://neo4j:7687", auth=("neo4j", "password"))
 
         # Find closest nodes to the specified locations
         logging.info("Finding closest nodes...")
@@ -235,7 +235,7 @@ class Map_tool(BaseTool):
             logging.info(f"Start Location: {start_location}, End Location: {end_location}")
 
             # Connect to Neo4j
-            driver = GraphDatabase.driver("neo4j://localhost:7687", auth=("neo4j", "password"))
+            driver = GraphDatabase.driver("neo4j://neo4j:7687", auth=("neo4j", "password"))
 
             # Find closest nodes to the specified locations
             logging.info("Finding closest nodes...")
