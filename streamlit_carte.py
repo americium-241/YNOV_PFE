@@ -9,7 +9,7 @@ from langchain.agents import AgentType, initialize_agent, load_tools
 from langchain.callbacks import StreamlitCallbackHandler
 import logging
 import os
-os.environ["OPENAI_API_KEY"] ='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'
+os.environ["OPENAI_API_KEY"] ='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'
 st.set_page_config(
     page_title="Votre éco chemin :D",  # Title for the page # Wide mode
 )
@@ -55,6 +55,8 @@ def find_shortest_path(tx, start_node, end_node, modalities=["foot"], metric="ti
         graph_projection = "GRAPH_TIME_CAR"
     elif set(modalities) == {"foot", "velo"}:
         graph_projection = "GRAPH_TIME_VCUB"
+    elif set(modalities) == {"foot"}:
+        graph_projection = "GRAPH"
     print(start_node,end_node)
     # Modify the query to use the A* algorithm with the specified graph projection
     query = f"""
@@ -80,11 +82,22 @@ def find_shortest_path(tx, start_node, end_node, modalities=["foot"], metric="ti
 def fetch_node_details(tx, node_ids):
     query = """
     UNWIND $node_ids AS node_id
-    MATCH (n) WHERE id(n) = node_id
-    RETURN id(n) AS NodeID, n.road_id AS RoadID, n.latitude AS Latitude, n.longitude AS Longitude, labels(n) AS Labels
+    MATCH (n)-[r]-(m)
+    WHERE id(n) = node_id AND id(m) IN $node_ids
+    RETURN 
+        id(n) AS NodeID, 
+        n.road_id AS RoadID, 
+        n.latitude AS Latitude, 
+        n.longitude AS Longitude, 
+        labels(n) AS Labels, 
+        r.distance AS CostDistance, 
+        r.time AS Time, 
+        r.carbon AS CarbonRate
     """
     result = tx.run(query, node_ids=node_ids)
     return [record for record in result]
+
+
 
 
 
@@ -170,7 +183,13 @@ if st.button("Find Shortest Path"):
         st.error("No path found between the specified locations.")
     else:
         # Folium map
+        # Folium map
         m = folium.Map(location=start_location, zoom_start=10)
+
+        # Variables to keep track of the cumulative properties
+        total_distance = 0
+        total_time = 0
+        total_carbon = 0
 
         # Extract locations for the path line
         locations = []
@@ -178,33 +197,62 @@ if st.button("Find Shortest Path"):
         previous_modality = None
         modality_changes = 0
 
-            # Extract locations for the path line
-        locations = []
-        unique_road_ids = set()
+        # Extract locations and compute the total metrics
         for i in range(1, len(node_details)):
             start = [node_details[i-1]['Latitude'], node_details[i-1]['Longitude']]
             end = [node_details[i]['Latitude'], node_details[i]['Longitude']]
             
+            # Adding to total counts
+                # Adding to total counts
+            total_distance += node_details[i-1].get('CostDistance') or 0
+            total_time += node_details[i-1].get('Time') or 0
+            total_carbon += node_details[i-1].get('CarbonRate') or 0
+
+
+            # Determine the modality and its color
             modality = next((label for label in node_details[i]['Labels'] if label in modality_colors), None)
             color = modality_colors.get(modality, "black")  # default to black if modality is not recognized
-
             folium.PolyLine(locations=[start, end], color=color, weight=2.5, opacity=1).add_to(m)
-
-        
-        # Adding a line between the markers to visualize the path
-        #folium.PolyLine(locations=locations, color="blue", weight=2.5, opacity=1).add_to(m)
+            
+            # Add markers for special modalities (PARKING and VCUB)
+            if 'PARKING' in node_details[i]['Labels']:
+                folium.Marker([node_details[i]['Latitude'], node_details[i]['Longitude']], popup="Parking", icon=folium.Icon(color='yellow'),icon_size=(12,12)).add_to(m)
+            elif 'VCUB' in node_details[i]['Labels']:
+                folium.Marker([node_details[i]['Latitude'], node_details[i]['Longitude']], popup="Velo station", icon=folium.Icon(color='black')).add_to(m)
 
         # Adding markers for the start and end points
         folium.Marker(start_location, popup="Start", icon=folium.Icon(color='green')).add_to(m)
         folium.Marker(end_location, popup="End", icon=folium.Icon(color='red')).add_to(m)
-        # Second Column: Map
-        # Check if there is a path and display the map
+
+        # Display the map
         if 'm' in locals():  # Check if 'm' (the map object) has been created
             st_folium(m, width=800, height=600, returned_objects=[])
+
+        # Convert total_distance from meters to kilometers or meters
+        if total_distance >= 1000:
+            distance_str = f"{total_distance / 1000:.2f} km"
+        else:
+            distance_str = f"{total_distance} m"
+
+        # Convert total_time from seconds to hours, minutes, and seconds
+        hours, remainder = divmod(total_time, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        time_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+
+        # Display total_carbon in grams (g) or kilograms (kg)
+        if total_carbon >= 1000:
+            carbon_str = f"{total_carbon / 1000:.2f} kg"
+        else:
+            carbon_str = f"{total_carbon} g"
+
+        # Display the human-readable values
+        st.info(f"Total Distance: {distance_str}")
+        st.info(f"Total Time: {time_str}")
+        st.info(f"Total Carbon Rate: {carbon_str}")
+
         logging.info("Shortest path visualization completed.")
 
-        # Find the name of the road for each unique road_id using reverse geocoding
-        road_names = []
+
 
 from langchain.tools import BaseTool, StructuredTool, Tool, tool
 from langchain.callbacks.manager import (
@@ -223,10 +271,10 @@ class Map_tool(BaseTool):
         """Use the tool."""
         start= start_end.split('|')[0]
         end = start_end.split('|')[1]
-        start_location = geolocator.geocode(start_address)
-        end_location = geolocator.geocode(end_address)
+        start_location = geolocator.geocode(start)
+        end_location = geolocator.geocode(end)
 
-        # Check if the addresses are valid
+            # Check if the addresses are valid
         if start_location is None or end_location is None:
             st.error("Could not determine the locations based on the addresses provided.")
         else:
@@ -259,7 +307,13 @@ class Map_tool(BaseTool):
             st.error("No path found between the specified locations.")
         else:
             # Folium map
+            # Folium map
             m = folium.Map(location=start_location, zoom_start=10)
+
+            # Variables to keep track of the cumulative properties
+            total_distance = 0
+            total_time = 0
+            total_carbon = 0
 
             # Extract locations for the path line
             locations = []
@@ -267,34 +321,60 @@ class Map_tool(BaseTool):
             previous_modality = None
             modality_changes = 0
 
-                # Extract locations for the path line
-            locations = []
-            unique_road_ids = set()
+            # Extract locations and compute the total metrics
             for i in range(1, len(node_details)):
                 start = [node_details[i-1]['Latitude'], node_details[i-1]['Longitude']]
                 end = [node_details[i]['Latitude'], node_details[i]['Longitude']]
                 
+                # Adding to total counts
+                    # Adding to total counts
+                total_distance += node_details[i-1].get('CostDistance') or 0
+                total_time += node_details[i-1].get('Time') or 0
+                total_carbon += node_details[i-1].get('CarbonRate') or 0
+
+
+                # Determine the modality and its color
                 modality = next((label for label in node_details[i]['Labels'] if label in modality_colors), None)
                 color = modality_colors.get(modality, "black")  # default to black if modality is not recognized
-
                 folium.PolyLine(locations=[start, end], color=color, weight=2.5, opacity=1).add_to(m)
-
-            
-            # Adding a line between the markers to visualize the path
-            #folium.PolyLine(locations=locations, color="blue", weight=2.5, opacity=1).add_to(m)
+                
+                # Add markers for special modalities (PARKING and VCUB)
+                if 'PARKING' in node_details[i]['Labels']:
+                    folium.Marker([node_details[i]['Latitude'], node_details[i]['Longitude']], popup="Parking", icon=folium.Icon(color='yellow'),icon_size=(12,12)).add_to(m)
+                elif 'VCUB' in node_details[i]['Labels']:
+                    folium.Marker([node_details[i]['Latitude'], node_details[i]['Longitude']], popup="Velo station", icon=folium.Icon(color='black')).add_to(m)
 
             # Adding markers for the start and end points
             folium.Marker(start_location, popup="Start", icon=folium.Icon(color='green')).add_to(m)
             folium.Marker(end_location, popup="End", icon=folium.Icon(color='red')).add_to(m)
-            # Second Column: Map
-            # Check if there is a path and display the map
+
+            # Display the map
             if 'm' in locals():  # Check if 'm' (the map object) has been created
                 st_folium(m, width=800, height=600, returned_objects=[])
+
+            # Convert total_distance from meters to kilometers or meters
+            if total_distance >= 1000:
+                distance_str = f"{total_distance / 1000:.2f} km"
+            else:
+                distance_str = f"{total_distance} m"
+
+            # Convert total_time from seconds to hours, minutes, and seconds
+            hours, remainder = divmod(total_time, 3600)
+            minutes, seconds = divmod(remainder, 60)
+            time_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+
+            # Display total_carbon in grams (g) or kilograms (kg)
+            if total_carbon >= 1000:
+                carbon_str = f"{total_carbon / 1000:.2f} kg"
+            else:
+                carbon_str = f"{total_carbon} g"
+
+            # Display the human-readable values
+            st.info(f"Total Distance: {distance_str}")
+            st.info(f"Total Time: {time_str}")
+            st.info(f"Total Carbon Rate: {carbon_str}")
+
             logging.info("Shortest path visualization completed.")
-
-            # Find the name of the road for each unique road_id using reverse geocoding
-            road_names = []
-
         return 
 
     async def _arun(
@@ -326,3 +406,5 @@ st.markdown("""
 * **Report a Bug or Request a Feature:** [Create an Issue](https://github.com/americium-241/YNOV_PFE/issues/new)
 * **Browse Existing Issues:** [Check Issues and Pull Requests](https://github.com/americium-241/YNOV_PFE/issues)
 """)
+
+

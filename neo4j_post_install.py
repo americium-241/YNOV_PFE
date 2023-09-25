@@ -361,21 +361,21 @@ def add_time_property(tx):
     # For GRID_ROUTE_LINK (5 km/hr)
     grid_route_query = """
     MATCH ()-[r:GRID_ROUTE_LINK]->()
-    SET r.time = r.distance / 5.0
+    SET r.time = r.distance / 1.4
     """
     tx.run(grid_route_query)
 
     # For GRID_ROUTE_CAR_LINK (50 km/hr)
     grid_route_car_query = """
     MATCH ()-[r:GRID_ROUTE_CAR_LINK]->()
-    SET r.time = r.distance / 50.0
+    SET r.time = r.distance / 13.9
     """
     tx.run(grid_route_car_query)
 
     # For GRID_ROUTE_VELO_LINK (25 km/hr)
     grid_route_velo_query = """
     MATCH ()-[r:GRID_ROUTE_VELO_LINK]->()
-    SET r.time = r.distance / 25.0
+    SET r.time = r.distance / 5.6
     """
     tx.run(grid_route_velo_query)
 
@@ -386,7 +386,7 @@ def add_carbon_property(tx):
     grid_route_query = """
     CALL apoc.periodic.iterate(
         "MATCH ()-[r:GRID_ROUTE_LINK]->() RETURN r", 
-        "SET r.carbon_rate = 1 / r.time", 
+        "SET r.carbon_rate = (r.distance * 0.000001) / r.time, r.carbon = (r.distance * 0.000001)", 
         {batchSize: 10000, iterateList: true, parallel: false}
     )
     """
@@ -396,7 +396,7 @@ def add_carbon_property(tx):
     grid_route_car_query = """
     CALL apoc.periodic.iterate(
         "MATCH ()-[r:GRID_ROUTE_CAR_LINK]->() RETURN r", 
-        "SET r.carbon_rate = (r.distance * 120) / r.time", 
+        "SET r.carbon_rate = (r.distance * 0.0025) / r.time, r.carbon = (r.distance * 0.0025)",
         {batchSize: 10000, iterateList: true, parallel: false}
     )
     """
@@ -406,7 +406,7 @@ def add_carbon_property(tx):
     grid_route_velo_query = """
     CALL apoc.periodic.iterate(
         "MATCH ()-[r:GRID_ROUTE_VELO_LINK]->() RETURN r", 
-        "SET r.carbon_rate = (r.distance * 5) / r.time", 
+        "SET r.carbon_rate = (r.distance * 0.000001) / r.time, r.carbon = (r.distance * 0.000001)",
         {batchSize: 10000, iterateList: true, parallel: false}
     )
     """
@@ -511,6 +511,26 @@ def project_graph_time_car(tx):
                 type: 'GRID_ROUTE_CAR_LINK',
                 properties: ['time','carbon_rate']
             },
+            GRID_ROUTE_LINK: {
+                type: 'GRID_ROUTE_LINK',
+                properties: ['time','carbon_rate']
+            }
+        }
+    )
+    """
+    tx.run(query)
+
+def project_graph_time_car(tx):
+    query = """
+    CALL gds.graph.project(
+        'GRAPH',
+        {
+            GRID_ROUTE: {
+                label: 'GRID_ROUTE',
+                properties: ['latitude', 'longitude']
+            }
+        },
+        {
             GRID_ROUTE_LINK: {
                 type: 'GRID_ROUTE_LINK',
                 properties: ['time','carbon_rate']
