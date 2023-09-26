@@ -83,8 +83,8 @@ def fetch_node_details(tx, node_ids):
     query = """
     UNWIND $node_ids AS node_id
     MATCH (n)-[r]-(m)
-    WHERE id(n) = node_id AND id(m) IN $node_ids
-    RETURN 
+    WHERE id(n) = node_id AND id(m) IN $node_ids AND id(n) < id(m)
+    RETURN DISTINCT 
         id(n) AS NodeID, 
         n.road_id AS RoadID, 
         n.latitude AS Latitude, 
